@@ -1,0 +1,66 @@
+# lightning.pytorch==2.0.0
+name: my_experiment
+version: my_version
+
+seed_everything: 42
+trainer:
+  accelerator: auto
+  precision: 16-mixed
+  max_epochs: 300
+  deterministic: true
+  plugins:
+    - AsyncCheckpointIO
+  callbacks:
+    - class_path: WandbAlert
+      init_args:
+        monitor: ${model_ckpt.monitor}
+        mode: ${model_ckpt.mode}
+
+model:
+  class_path: DefaultModel
+  init_args:
+    net:
+      class_path: Cifar10Resnet18
+      init_args:
+        num_classes: 10
+
+    criterion:
+      class_path: CrossEntropyLoss
+
+    vis_per_batch: 0
+
+data:
+  class_path: Cifar10DataModule
+  init_args:
+    root: data
+    batch_size: 128
+    val_split: 0.1
+    transforms:
+      class_path: DefaultTransforms
+
+optimizer:
+  class_path: SGD
+  init_args:
+    lr: 0.1
+    momentum: 0.9
+    weight_decay: 5e-4
+
+lr_scheduler:
+  class_path: LinearWarmupCosineAnnealingLR
+  init_args:
+    warmup_epochs: 20
+    max_epochs: ${trainer.max_epochs}
+
+early_stopping:
+  monitor: val/acc
+  patience: 1000
+  mode: max
+
+model_ckpt:
+  # dirpath: "gs://ecstatic-kirch-iqa-dacon"
+  monitor: val/acc
+  mode: max
+  filename: "best-ep={epoch:02d}-val_acc={val/acc:.4f}"
+  auto_insert_metric_name: false
+# ckpt_path: logs/debug-resume/version_0/fit/checkpoints/last.ckpt
+
